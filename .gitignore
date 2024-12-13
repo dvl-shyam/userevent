@@ -1,0 +1,4 @@
+.envrc
+go.sum
+/.envrc
+/go.sum
