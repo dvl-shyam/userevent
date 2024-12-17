@@ -8,7 +8,7 @@ import (
 	"os"
 	"strings"
 	"time"
-
+	"fmt"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/sendgrid/sendgrid-go"
 	"github.com/sendgrid/sendgrid-go/helpers/mail"
@@ -149,7 +149,7 @@ func Login(w http.ResponseWriter, r *http.Request) {
 }
 
 func sendWelcomeEmail(email string) error {
-	from := mail.NewEmail("Test User", "test@example.com")
+	from := mail.NewEmail("shyam kuntal", "shyam.kuntal@digivatelabs.com")
 	subject := "Testing the Service"
 	to := mail.NewEmail("New User", email)
 	plainTextContent := "Welcome to our service. We're glad to have you!"
@@ -157,22 +157,23 @@ func sendWelcomeEmail(email string) error {
 	message := mail.NewSingleEmail(from, subject, to, plainTextContent, htmlContent)
 
 	client := sendgrid.NewSendClient(sendGridAPIKey)
-	_, err := client.Send(message)
+	response, err := client.Send(message)
 	if err != nil {
-		return err
+		log.Println(err)
+	} else {
+		fmt.Println(response.StatusCode)
+		fmt.Println(response.Body)
+		fmt.Println(response.Headers)
 	}
 	return nil
 }
 
 func ConsumeEvents() {
 	collection := getCollection()
-
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-
 	for {
 		var event map[string]interface{}
-		
 		log.Println("Fetching pending events...")
 		err := collection.FindOne(ctx, bson.M{"status": "pending"}).Decode(&event)
 		
@@ -191,16 +192,15 @@ func ConsumeEvents() {
 		retryCount, ok := event["retry_count"].(int)
 		if !ok {
 			log.Println("Invalid retry_count type, skipping event.")
-			continue
+			// continue
 		}
-
 		if retryCount > 5 {
 			log.Printf("Moving event %v to Dead Letter Queue due to exceeding retries.", event["_id"])
 			moveToDeadLetterQueue(event)
 			continue
 		}
-
 		err = sendWelcomeEmail(event["payload"].(map[string]interface{})["email"].(string))
+
 		if err != nil {
 			log.Printf("Failed to process event %v: %v", event["_id"], err)
 
